@@ -11,7 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CSV_PATH = os.getenv("CSV_PATH", "../data/JOB_TRACKER_LIVE.csv")
+CSV_PATH = os.getenv("CSV_PATH", "data/JOB_TRACKER_LIVE.csv")
 
 
 class CSVHandler:
@@ -208,3 +208,97 @@ class CSVHandler:
             df = df[df['Company'].str.contains(company, case=False, na=False)]
 
         return df.to_dict('records')
+
+    def get_application_timeline(self, months: int = 6) -> Dict:
+        """Get application timeline grouped by month"""
+        df = self.read_csv()
+
+        if len(df) == 0:
+            return {
+                "labels": [],
+                "applications": [],
+                "responses": []
+            }
+
+        # Convert Date_Applied to datetime
+        df['Date_Applied'] = pd.to_datetime(df['Date_Applied'], errors='coerce')
+        df['Response_Date'] = pd.to_datetime(df['Response_Date'], errors='coerce')
+
+        # Filter out invalid dates
+        df = df[df['Date_Applied'].notna()]
+
+        # Group by month
+        df['Month'] = df['Date_Applied'].dt.to_period('M')
+
+        # Count applications per month
+        monthly_apps = df.groupby('Month').size()
+
+        # Count responses per month (based on Response_Date)
+        df_responses = df[df['Response_Date'].notna()].copy()
+        df_responses['ResponseMonth'] = df_responses['Response_Date'].dt.to_period('M')
+        monthly_responses = df_responses.groupby('ResponseMonth').size()
+
+        # Get last N months
+        all_months = sorted(df['Month'].unique())[-months:]
+
+        labels = [str(month) for month in all_months]
+        applications = [int(monthly_apps.get(month, 0)) for month in all_months]
+        responses = [int(monthly_responses.get(month, 0)) for month in all_months]
+
+        return {
+            "labels": labels,
+            "applications": applications,
+            "responses": responses
+        }
+
+    def get_status_breakdown(self) -> List[Dict]:
+        """Get breakdown of applications by status"""
+        df = self.read_csv()
+
+        if len(df) == 0:
+            return []
+
+        # Clean and group statuses
+        status_counts = df['Status'].value_counts()
+
+        breakdown = [
+            {
+                "status": status,
+                "count": int(count),
+                "percentage": round((count / len(df)) * 100, 1)
+            }
+            for status, count in status_counts.items()
+            if status  # Skip empty statuses
+        ]
+
+        return breakdown
+
+    def get_source_breakdown(self) -> List[Dict]:
+        """Get breakdown of applications by source with response rates"""
+        df = self.read_csv()
+
+        if len(df) == 0:
+            return []
+
+        # Group by source
+        source_stats = []
+        for source in df['Source'].unique():
+            if not source:
+                continue
+
+            source_df = df[df['Source'] == source]
+            total = len(source_df)
+            responded = len(source_df[source_df['Response_Date'] != ""])
+            response_rate = (responded / total * 100) if total > 0 else 0.0
+
+            source_stats.append({
+                "source": source,
+                "applications": total,
+                "responses": responded,
+                "response_rate": round(response_rate, 1)
+            })
+
+        # Sort by application count
+        source_stats.sort(key=lambda x: x['applications'], reverse=True)
+
+        return source_stats

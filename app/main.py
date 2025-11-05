@@ -344,14 +344,24 @@ async def get_dashboard_stats():
 
 
 @app.get("/api/stats/timeline")
-async def get_timeline():
+async def get_timeline(months: int = Query(6, description="Number of months to show")):
     """Get monthly application timeline"""
-    # TODO: Implement actual timeline calculation
-    return {
-        "months": ["Sep", "Oct", "Nov"],
-        "applications": [12, 45, 51],
-        "responses": [2, 15, 17]
-    }
+    try:
+        if auth_manager.is_demo():
+            # Demo mode: return fake timeline
+            return {
+                "labels": ["2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11"],
+                "applications": [5, 8, 12, 18, 25, 26],
+                "responses": [1, 2, 4, 6, 8, 11]
+            }
+
+        # Real mode: calculate from CSV
+        timeline = csv_handler.get_application_timeline(months=months)
+        return timeline
+
+    except Exception as e:
+        logger.error(f"Error fetching timeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/stats/companies")
@@ -373,19 +383,49 @@ async def get_top_companies():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/stats/response-rate")
-async def get_response_rate():
+@app.get("/api/stats/status-breakdown")
+async def get_status_breakdown():
+    """Get breakdown of applications by status"""
+    try:
+        if auth_manager.is_demo():
+            # Demo mode: return fake status breakdown
+            return [
+                {"status": "Applied", "count": 28, "percentage": 54.9},
+                {"status": "Interview Scheduled", "count": 8, "percentage": 15.7},
+                {"status": "Rejected", "count": 10, "percentage": 19.6},
+                {"status": "Offer Received", "count": 4, "percentage": 7.8},
+                {"status": "PHISHING_BLOCKED", "count": 1, "percentage": 2.0}
+            ]
+
+        # Real mode: calculate from CSV
+        breakdown = csv_handler.get_status_breakdown()
+        return breakdown
+
+    except Exception as e:
+        logger.error(f"Error fetching status breakdown: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/stats/source-breakdown")
+async def get_source_breakdown():
     """Get response rate breakdown by source"""
-    # TODO: Implement actual response rate calculation
-    return {
-        "overall": 32.7,
-        "by_source": {
-            "LinkedIn": 28.5,
-            "Company Website": 42.1,
-            "Referral": 67.8,
-            "Email": 15.2
-        }
-    }
+    try:
+        if auth_manager.is_demo():
+            # Demo mode: return fake source breakdown
+            return [
+                {"source": "LinkedIn", "applications": 25, "responses": 7, "response_rate": 28.0},
+                {"source": "Company Website", "applications": 15, "responses": 6, "response_rate": 40.0},
+                {"source": "Referral", "applications": 8, "responses": 5, "response_rate": 62.5},
+                {"source": "Email", "applications": 3, "responses": 0, "response_rate": 0.0}
+            ]
+
+        # Real mode: calculate from CSV
+        source_breakdown = csv_handler.get_source_breakdown()
+        return source_breakdown
+
+    except Exception as e:
+        logger.error(f"Error fetching source breakdown: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
