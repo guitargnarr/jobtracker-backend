@@ -34,8 +34,23 @@ http://localhost:8000/docs
 
 ## API Endpoints
 
+### Health Check
+```http
+GET /health
+```
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "version": "3.0.0",
+  "mode": "demo",
+  "message": "All systems operational. Synergy levels optimal."
+}
+```
+
+### Core Endpoints
 - `GET /` - API info with corporate humor
-- `GET /health` - Health check
 - `GET /api/applications` - List all applications
 - `POST /api/applications` - Create new application
 - `PUT /api/applications/{id}` - Update application
